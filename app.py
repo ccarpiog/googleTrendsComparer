@@ -2,7 +2,7 @@
 Main Streamlit application for the Multi-Country Google Trends Explorer.
 
 Entry point that ties together the backend modules (countries, trends_client,
-data_model, export) into an interactive UI. All user-facing text is in Spanish.
+data_model, export) into an interactive UI.
 """
 
 import hashlib
@@ -37,19 +37,19 @@ st.set_page_config(page_title="Google Trends Explorer", layout="wide")
 MAX_TERMS = 20
 
 TIMEFRAME_PRESETS = {
-    "Último mes": "today 1-m",
-    "Últimos 12 meses": "today 12-m",
-    "Año en curso": "year_to_date",
-    "Últimos 5 años": "today 5-y",
-    "Desde 2004": "all",
-    "Personalizado": "custom",
+    "Last month": "today 1-m",
+    "Last 12 months": "today 12-m",
+    "Year to date": "year_to_date",
+    "Last 5 years": "today 5-y",
+    "Since 2004": "all",
+    "Custom": "custom",
 }
 
 SEARCH_TYPE_OPTIONS = {
     "Web": "",
     "YouTube": "youtube",
-    "Noticias": "news",
-    "Imágenes": "images",
+    "News": "news",
+    "Images": "images",
     "Google Shopping": "froogle",
 }
 
@@ -123,7 +123,7 @@ def restore_config_to_session(config, country_name_map):
         st.session_state["timeframe_preset"] = preset_match
     else:
         # Custom timeframe: try to parse start/end dates
-        st.session_state["timeframe_preset"] = "Personalizado"
+        st.session_state["timeframe_preset"] = "Custom"
         parts = timeframe.split()
         if len(parts) == 2:
             try:
@@ -223,15 +223,15 @@ def build_chart(long_df, value_column, y_label, visible_series=None, facet_mode=
         facet_col=facet_col,
         facet_col_wrap=2 if facet_col else None,
         labels={
-            "date": "Fecha",
+            "date": "Date",
             value_column: y_label,
-            "serie": "Término \u2014 País",
+            "serie": "Term \u2014 Country",
         },
     )
 
     fig.update_layout(
-        legend_title_text="Término \u2014 País",
-        xaxis_title="Fecha",
+        legend_title_text="Term \u2014 Country",
+        xaxis_title="Date",
         yaxis_title=y_label,
         hovermode="x unified",
     )
@@ -258,7 +258,7 @@ code_to_name_map = get_code_to_name()
 # Title
 # ---------------------------------------------------------------------------
 
-st.title("Explorador de Google Trends")
+st.title("Google Trends Explorer")
 
 
 # ---------------------------------------------------------------------------
@@ -266,18 +266,18 @@ st.title("Explorador de Google Trends")
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.header("Parámetros de búsqueda")
+    st.header("Search parameters")
 
     # 1. Terms input
     terms_raw = st.text_area(
-        "Términos de búsqueda (uno por línea)",
+        "Search terms (one per line)",
         height=150,
         key="terms_input",
     )
 
     # 2. Countries selector
     selected_country_names = st.multiselect(
-        "Países",
+        "Countries",
         options=country_names,
         max_selections=MAX_COUNTRIES,
         key="countries_input",
@@ -285,7 +285,7 @@ with st.sidebar:
 
     # 3. Timeframe
     timeframe_label = st.selectbox(
-        "Período de tiempo",
+        "Time period",
         options=list(TIMEFRAME_PRESETS.keys()),
         key="timeframe_preset",
     )
@@ -300,19 +300,19 @@ with st.sidebar:
         col_start, col_end = st.columns(2)
         with col_start:
             custom_start = st.date_input(
-                "Fecha inicio",
+                "Start date",
                 value=date.today() - timedelta(days=365),
                 key="custom_start",
             )
         with col_end:
             custom_end = st.date_input(
-                "Fecha fin",
+                "End date",
                 value=date.today(),
                 key="custom_end",
             )
         timeframe_valid = custom_start < custom_end
         if not timeframe_valid:
-            st.error("La fecha de inicio debe ser anterior a la fecha de fin.")
+            st.error("Start date must be before end date.")
         timeframe_value = f"{custom_start.isoformat()} {custom_end.isoformat()}"
     else:
         timeframe_valid = True
@@ -320,7 +320,7 @@ with st.sidebar:
 
     # 4. Search type
     search_type_label = st.selectbox(
-        "Tipo de búsqueda",
+        "Search type",
         options=list(SEARCH_TYPE_OPTIONS.keys()),
         key="search_type_input",
     )
@@ -328,7 +328,7 @@ with st.sidebar:
 
     # 5. Category
     category_value = st.number_input(
-        "Categoría (0 = todas)",
+        "Category (0 = all)",
         min_value=0,
         value=0,
         step=1,
@@ -336,55 +336,55 @@ with st.sidebar:
     )
 
     # 6. Advanced throttle/retry settings
-    with st.expander("Avanzado (velocidad y reintentos)", expanded=False):
+    with st.expander("Advanced (speed and retries)", expanded=False):
         st.caption(
-            "Google Trends no tiene una API oficial y aplica límites de "
-            "velocidad (~5-10 peticiones/min). Si recibes errores 429, "
-            "aumenta la pausa entre peticiones."
+            "Google Trends does not have an official API and enforces rate "
+            "limits (~5-10 requests/min). If you get 429 errors, "
+            "increase the delay between requests."
         )
         request_delay = st.slider(
-            "Pausa entre peticiones (segundos)",
+            "Delay between requests (seconds)",
             min_value=1,
             max_value=60,
             value=10,
             step=1,
             key="request_delay",
-            help="Segundos de espera entre cada consulta a Google Trends.",
+            help="Seconds to wait between each Google Trends query.",
         )
         retries = st.slider(
-            "Reintentos por par fallido",
+            "Retries per failed pair",
             min_value=1,
             max_value=10,
             value=5,
             step=1,
             key="retries",
-            help="Cuántas veces reintentar si una petición falla (con espera exponencial).",
+            help="How many times to retry if a request fails (with exponential backoff).",
         )
         backoff_base = st.slider(
-            "Espera base para reintento (segundos)",
+            "Base retry delay (seconds)",
             min_value=5,
             max_value=60,
             value=10,
             step=5,
             key="backoff_base",
-            help="Espera inicial antes del primer reintento. Se duplica en cada intento posterior.",
+            help="Initial wait before the first retry. Doubles with each subsequent attempt.",
         )
 
         total_pairs_est = len(parse_terms(terms_raw)) * len(selected_country_names)
         if total_pairs_est > 0:
             est_minutes = (total_pairs_est * request_delay) / 60
-            st.info(f"Estimación: {total_pairs_est} pares, ~{est_minutes:.1f} min sin reintentos.")
+            st.info(f"Estimate: {total_pairs_est} pairs, ~{est_minutes:.1f} min without retries.")
     # End of advanced settings expander
 
     st.divider()
 
     # 7. Run button
-    run_clicked = st.button("Buscar tendencias", type="primary", use_container_width=True)
+    run_clicked = st.button("Fetch trends", type="primary", use_container_width=True)
 
     st.divider()
 
     # 7. Config save/load
-    st.subheader("Configuración")
+    st.subheader("Configuration")
 
     # --- Save config ---
     terms_for_config = parse_terms(terms_raw)
@@ -399,7 +399,7 @@ with st.sidebar:
     )
 
     st.download_button(
-        label="Guardar configuración",
+        label="Save configuration",
         data=config_json_str,
         file_name="trends_config.json",
         mime="application/json",
@@ -408,7 +408,7 @@ with st.sidebar:
 
     # --- Load config ---
     uploaded_config = st.file_uploader(
-        "Cargar configuración",
+        "Load configuration",
         type=["json"],
         key="config_uploader",
     )
@@ -422,12 +422,12 @@ with st.sidebar:
                 imported_config = import_config_json(raw_json)
                 restore_config_to_session(imported_config, code_to_name_map)
                 st.session_state["_last_imported_config_hash"] = config_hash
-                st.success("Configuración cargada correctamente.")
+                st.success("Configuration loaded successfully.")
                 st.rerun()
             except ValueError as exc:
-                st.error(f"Error al cargar configuración: {exc}")
+                st.error(f"Error loading configuration: {exc}")
             except Exception as exc:
-                st.error(f"Error inesperado al cargar configuración: {exc}")
+                st.error(f"Unexpected error loading configuration: {exc}")
         # End of config-already-imported guard
     # End of config upload handler
 # End of sidebar block
@@ -448,26 +448,26 @@ if run_clicked:
 
     # Validate: at least 1 term
     if not terms:
-        st.error("Debes ingresar al menos un término de búsqueda.")
+        st.error("You must enter at least one search term.")
     elif len(terms) > MAX_TERMS:
         st.warning(
-            f"Se han ingresado {len(terms)} términos. El máximo es {MAX_TERMS}. "
-            f"Solo se usarán los primeros {MAX_TERMS}."
+            f"{len(terms)} terms entered. The maximum is {MAX_TERMS}. "
+            f"Only the first {MAX_TERMS} will be used."
         )
         terms = terms[:MAX_TERMS]
     # End of terms validation
 
     # Validate: at least 1 country
     if not selected_codes:
-        st.error("Debes seleccionar al menos un país.")
+        st.error("You must select at least one country.")
     # End of country validation
 
     # Proceed only if inputs are valid
     if terms and selected_codes and timeframe_valid:
         total_pairs = len(terms) * len(selected_codes)
 
-        progress_bar = st.progress(0, text="Iniciando búsqueda...")
-        status_container = st.status("Obteniendo datos de Google Trends...", expanded=True)
+        progress_bar = st.progress(0, text="Starting search...")
+        status_container = st.status("Fetching data from Google Trends...", expanded=True)
 
         def progress_callback(current_index, total, term, country_code):
             """
@@ -482,7 +482,7 @@ if run_clicked:
             """
             fraction = (current_index + 1) / total
             country_display = code_to_name_map.get(country_code, country_code)
-            message = f"Consultando: \"{term}\" en {country_display} ({current_index + 1}/{total})"
+            message = f"Querying: \"{term}\" in {country_display} ({current_index + 1}/{total})"
             progress_bar.progress(fraction, text=message)
             status_container.write(message)
         # End of function progress_callback()
@@ -503,8 +503,8 @@ if run_clicked:
             )
 
             # Update progress to 100%
-            progress_bar.progress(1.0, text="Búsqueda completada.")
-            status_container.update(label="Búsqueda completada.", state="complete", expanded=False)
+            progress_bar.progress(1.0, text="Search completed.")
+            status_container.update(label="Search completed.", state="complete", expanded=False)
 
             # Process results
             long_df = build_long_dataframe(results, code_to_name_map)
@@ -519,8 +519,8 @@ if run_clicked:
 
         except Exception as exc:
             progress_bar.empty()
-            status_container.update(label="Error durante la búsqueda.", state="error", expanded=True)
-            st.error(f"Error inesperado durante la búsqueda: {exc}")
+            status_container.update(label="Error during search.", state="error", expanded=True)
+            st.error(f"Unexpected error during search: {exc}")
         # End of try/except for fetching
     # End of valid-inputs block
 # End of run_clicked block
@@ -540,37 +540,37 @@ if "results" in st.session_state and st.session_state["results"] is not None:
     summary = get_run_summary(results)
 
     col_ok, col_empty, col_fail = st.columns(3)
-    col_ok.metric("Exitosos", summary["success"])
-    col_empty.metric("Sin datos", summary["empty"])
-    col_fail.metric("Fallidos", summary["failed"])
+    col_ok.metric("Successful", summary["success"])
+    col_empty.metric("No data", summary["empty"])
+    col_fail.metric("Failed", summary["failed"])
 
     if summary["failed_pairs"]:
         failed_lines = "\n".join(
-            f"- **{term}** en {code_to_name_map.get(code, code)}"
+            f"- **{term}** in {code_to_name_map.get(code, code)}"
             for term, code in summary["failed_pairs"]
         )
         st.warning(
-            f"Las siguientes combinaciones fallaron:\n\n{failed_lines}"
+            f"The following combinations failed:\n\n{failed_lines}"
         )
     # End of failed-pairs warning
 
     # --- Detailed run log (collapsible) ---
-    with st.expander("Detalle de la ejecución", expanded=False):
+    with st.expander("Run details", expanded=False):
         import pandas as _pd
         log_rows = []
         for r in results:
             log_rows.append({
-                "Término": r["term"],
-                "País": code_to_name_map.get(r["country_code"], r["country_code"]),
-                "Estado": {"success": "Exitoso", "empty": "Sin datos", "failed": "Fallido"}.get(r["status"], r["status"]),
-                "Puntos": len(r["data"]) if r["data"] is not None and not r["data"].empty else 0,
+                "Term": r["term"],
+                "Country": code_to_name_map.get(r["country_code"], r["country_code"]),
+                "Status": {"success": "Successful", "empty": "No data", "failed": "Failed"}.get(r["status"], r["status"]),
+                "Points": len(r["data"]) if r["data"] is not None and not r["data"].empty else 0,
                 "Error": r.get("error_message") or "",
             })
         # End of the loop that builds log table rows
         st.dataframe(_pd.DataFrame(log_rows), use_container_width=True, hide_index=True)
 
         st.download_button(
-            label="Descargar log de ejecución (JSON)",
+            label="Download run log (JSON)",
             data=export_run_log_json(results, code_to_name_map),
             file_name="trends_run_log.json",
             mime="application/json",
@@ -580,52 +580,52 @@ if "results" in st.session_state and st.session_state["results"] is not None:
 
     # --- Normalization info ---
     st.info(
-        "Cada línea término-país está normalizada independientemente; "
-        "los valores no representan volumen absoluto de búsquedas."
+        "Each term-country line is normalized independently; "
+        "values do not represent absolute search volume."
     )
 
     # --- Chart ---
-    st.subheader("Gráfico de tendencias")
+    st.subheader("Trends chart")
 
     # Chart controls row
     ctrl_col1, ctrl_col2 = st.columns(2)
 
     with ctrl_col1:
         chart_mode = st.radio(
-            "Valores a mostrar",
-            options=["Normalizado", "Sin normalizar"],
+            "Values to display",
+            options=["Normalized", "Raw"],
             horizontal=True,
             key="chart_mode",
         )
 
     with ctrl_col2:
         facet_mode_label = st.radio(
-            "Modo de gráfico",
-            options=["Todo junto", "Separar por término", "Separar por país"],
+            "Chart mode",
+            options=["All together", "Split by term", "Split by country"],
             horizontal=True,
             key="facet_mode",
         )
     # End of chart controls row
 
     facet_mode_map = {
-        "Todo junto": "all",
-        "Separar por término": "by_term",
-        "Separar por país": "by_country",
+        "All together": "all",
+        "Split by term": "by_term",
+        "Split by country": "by_country",
     }
     facet_mode = facet_mode_map[facet_mode_label]
 
-    if chart_mode == "Normalizado":
+    if chart_mode == "Normalized":
         value_col = "normalized_value"
-        y_label = "Valor normalizado"
+        y_label = "Normalized value"
     else:
         value_col = "raw_value"
-        y_label = "Valor sin normalizar"
+        y_label = "Raw value"
 
     # Series visibility filter
     all_series = get_available_series(long_df)
 
     visible_series = st.multiselect(
-        "Series visibles (deseleccionar para ocultar)",
+        "Visible series (deselect to hide)",
         options=all_series,
         default=all_series,
         key="visible_series",
@@ -636,29 +636,29 @@ if "results" in st.session_state and st.session_state["results"] is not None:
     if fig is not None:
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("No hay datos exitosos para graficar.")
+        st.warning("No successful data to plot.")
 
     # --- Data table ---
-    st.subheader("Vista previa de datos (formato ancho)")
+    st.subheader("Data preview (wide format)")
 
     if not wide_norm_df.empty:
-        preview_df = wide_norm_df if chart_mode == "Normalizado" else wide_raw_df
+        preview_df = wide_norm_df if chart_mode == "Normalized" else wide_raw_df
         st.dataframe(preview_df.head(100), use_container_width=True)
     else:
-        st.info("No hay datos disponibles para mostrar en tabla.")
+        st.info("No data available to display in table.")
     # End of data-table block
 
     # --- Download buttons ---
-    st.subheader("Descargas")
+    st.subheader("Downloads")
 
     dl_col1, dl_col2, dl_col3, dl_col4 = st.columns(4)
 
     with dl_col1:
         if not wide_norm_df.empty:
             st.download_button(
-                label="CSV normalizado (ancho)",
+                label="Normalized CSV (wide)",
                 data=export_wide_csv(wide_norm_df),
-                file_name="trends_wide_normalizado.csv",
+                file_name="trends_wide_normalized.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
@@ -668,9 +668,9 @@ if "results" in st.session_state and st.session_state["results"] is not None:
     with dl_col2:
         if not wide_raw_df.empty:
             st.download_button(
-                label="CSV sin normalizar (ancho)",
+                label="Raw CSV (wide)",
                 data=export_wide_csv(wide_raw_df),
-                file_name="trends_wide_sin_normalizar.csv",
+                file_name="trends_wide_raw.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
@@ -680,9 +680,9 @@ if "results" in st.session_state and st.session_state["results"] is not None:
     with dl_col3:
         if not long_df.empty:
             st.download_button(
-                label="CSV formato largo",
+                label="Long format CSV",
                 data=export_long_csv(long_df),
-                file_name="trends_largo.csv",
+                file_name="trends_long.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
@@ -693,9 +693,9 @@ if "results" in st.session_state and st.session_state["results"] is not None:
         zip_data = export_per_pair_zip(results)
         if zip_data:
             st.download_button(
-                label="ZIP por par individual",
+                label="ZIP per individual pair",
                 data=zip_data,
-                file_name="trends_por_par.zip",
+                file_name="trends_per_pair.zip",
                 mime="application/zip",
                 use_container_width=True,
             )
